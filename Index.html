@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="es" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>La Razón y la Fe: Un Explorador Interactivo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Calm Harmony (Stone, Muted Slate Blue) -->
+    <!-- Application Structure Plan: The application is structured around a central, non-linear exploratory model. A top navigation bar provides access to key sections. The core is an interactive timeline that acts as the primary filter, allowing users to delve into different historical eras. Clicking an era dynamically updates an "Argument Explorer" section, presenting key thinkers and their ideas in a card-based layout. This hub-and-spoke design encourages exploration rather than a linear reading. A dedicated comparison tool allows for side-by-side analysis, and a data visualization provides a macro view of trends. This structure was chosen to transform a dense, text-based report into an engaging, user-driven learning experience, prioritizing clarity and synthesis over the report's original chapter-based format. -->
+    <!-- Visualization & Content Choices: Report Info: Historical prevalence of argument types. -> Goal: Show change over time. -> Viz Method: Bar Chart (Chart.js). -> Interaction: Tooltips provide context. -> Justification: A bar chart is the clearest way to compare the prominence of categorical data (argument types) across different periods (eras), offering an immediate visual summary of historical trends. Report Info: Detailed arguments and critiques. -> Goal: Inform and Compare. -> Presentation Method: Dynamically updated HTML text blocks (cards, detail panes). -> Interaction: User clicks on timeline/cards to reveal information. -> Justification: This allows for progressive disclosure of complex information, preventing overwhelm and enabling users to focus on specific areas of interest. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f5f5f4; /* stone-100 */
+            color: #292524; /* stone-800 */
+        }
+        .nav-link {
+            transition: color 0.3s, border-color 0.3s;
+        }
+        .nav-link.active {
+            color: #3b82f6; /* blue-500 */
+            border-bottom-color: #3b82f6;
+        }
+        .timeline-item {
+            transition: background-color 0.3s, color 0.3s, transform 0.2s;
+        }
+        .timeline-item.active {
+            background-color: #374151; /* gray-700 */
+            color: #ffffff;
+            transform: translateY(-4px);
+        }
+        .argument-card {
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+        .argument-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 400px;
+            max-height: 50vh;
+        }
+    </style>
+</head>
+<body class="antialiased">
+
+    <header class="bg-white shadow-md sticky top-0 z-50">
+        <nav class="container mx-auto px-6 py-4">
+            <ul class="flex items-center justify-center space-x-4 sm:space-x-8 text-sm sm:text-base">
+                <li><a href="#intro" class="nav-link font-semibold border-b-2 border-transparent pb-1">Introducción</a></li>
+                <li><a href="#explorer" class="nav-link font-semibold border-b-2 border-transparent pb-1">Explorador</a></li>
+                <li><a href="#comparison" class="nav-link font-semibold border-b-2 border-transparent pb-1">Comparativa</a></li>
+                <li><a href="#trends" class="nav-link font-semibold border-b-2 border-transparent pb-1">Tendencias</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main class="container mx-auto p-4 sm:p-8">
+
+        <section id="intro" class="text-center my-12 scroll-mt-20">
+            <h1 class="text-4xl md:text-5xl font-bold text-gray-800 mb-4">La Razón y la Fe</h1>
+            <p class="text-lg md:text-xl text-gray-600 max-w-3xl mx-auto">Un explorador interactivo de los argumentos filosóficos sobre la existencia de Dios a lo largo de la historia.</p>
+            <p class="mt-4 max-w-3xl mx-auto text-gray-500">Esta aplicación le permite navegar a través de las ideas que han moldeado el debate entre la razón y la fe durante milenios. Utilice la línea de tiempo para viajar entre épocas, descubra los argumentos clave de los filósofos más influyentes y compare sus razonamientos para comprender mejor este diálogo perenne.</p>
+        </section>
+
+        <section id="explorer" class="my-16 scroll-mt-20">
+            <h2 class="text-3xl font-bold text-center mb-2 text-gray-800">Explorador de Argumentos</h2>
+            <p class="text-center text-gray-600 mb-8">Seleccione una época en la línea de tiempo para descubrir a sus pensadores y argumentos clave.</p>
+            
+            <div id="timeline" class="flex flex-wrap justify-center gap-2 sm:gap-4 mb-12">
+            </div>
+
+            <div id="explorer-content" class="grid grid-cols-1 md:grid-cols-12 gap-8 min-h-[400px]">
+                <div id="argument-cards-container" class="md:col-span-4 space-y-4">
+                </div>
+                <div class="md:col-span-8 bg-white p-6 rounded-lg shadow-lg">
+                    <div id="argument-detail-view">
+                        <div class="flex flex-col items-center justify-center h-full text-center">
+                            <span class="text-6xl mb-4">📜</span>
+                            <h3 class="text-xl font-semibold text-gray-700">Seleccione un argumento</h3>
+                            <p class="text-gray-500">Haga clic en una tarjeta a la izquierda para ver los detalles del argumento, su lógica y sus críticas.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="comparison" class="my-16 scroll-mt-20">
+            <h2 class="text-3xl font-bold text-center mb-2 text-gray-800">Comparativa de Argumentos</h2>
+            <p class="text-center text-gray-600 mb-8">Seleccione dos argumentos para analizar sus premisas, lógicas y críticas lado a lado.</p>
+            <div class="bg-white p-6 rounded-lg shadow-lg">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    <div>
+                        <label for="arg1-select" class="block text-sm font-medium text-gray-700 mb-1">Argumento 1</label>
+                        <select id="arg1-select" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"></select>
+                    </div>
+                    <div>
+                        <label for="arg2-select" class="block text-sm font-medium text-gray-700 mb-1">Argumento 2</label>
+                        <select id="arg2-select" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"></select>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div id="comparison-col-1" class="border border-gray-200 p-4 rounded-md bg-stone-50 min-h-[200px]"></div>
+                    <div id="comparison-col-2" class="border border-gray-200 p-4 rounded-md bg-stone-50 min-h-[200px]"></div>
+                </div>
+            </div>
+        </section>
+
+        <section id="trends" class="my-16 scroll-mt-20">
+            <h2 class="text-3xl font-bold text-center mb-2 text-gray-800">Tendencias Históricas</h2>
+            <p class="text-center text-gray-600 mb-8">Esta visualización muestra la prominencia de los principales tipos de argumentos en diferentes períodos filosóficos.</p>
+            <div class="bg-white p-4 sm:p-6 rounded-lg shadow-lg">
+                <div class="chart-container">
+                    <canvas id="trendsChart"></canvas>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="bg-gray-800 text-white text-center p-6 mt-16">
+        <p>&copy; 2025 Explorador Filosófico. Una síntesis interactiva del pensamiento humano.</p>
+    </footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            
+            const argumentsData = {
+                antiquity: {
+                    name: "Antigüedad Clásica",
+                    thinkers: [
+                        {
+                            id: "aristotle_cosmological",
+                            name: "Aristóteles",
+                            argument: "Primer Motor Inmóvil",
+                            type: "Cosmológico",
+                            summary: "Todo movimiento necesita una causa, llevando a un primer motor que mueve sin ser movido.",
+                            details: `
+                                <h4 class="font-bold text-lg mb-2">Lógica del Argumento</h4>
+                                <ul class="list-disc pl-5 space-y-1 text-gray-600">
+                                    <li>En el mundo, las cosas se mueven y cambian.</li>
+                                    <li>Todo lo que se mueve es movido por otro.</li>
+                                    <li>Esta cadena de causas y efectos no puede ser infinita.</li>
+                                    <li>Por lo tanto, debe existir un "Primer Motor Inmóvil" que origina todo movimiento.</li>
+                                </ul>
+                                <h4 class="font-bold text-lg mt-4 mb-2">Críticas Principales</h4>
+                                <p class="text-gray-600">El "dios" de Aristóteles es impersonal y no es un creador, sino una causa final. La premisa de que una regresión infinita es imposible es una afirmación filosófica, no una certeza demostrada.</p>
+                            `
+                        },
+                        {
+                            id: "plato_teleological",
+                            name: "Platón",
+                            argument: "La Mente Universal (Demiurgo)",
+                            type: "Teleológico",
+                            summary: "El orden y diseño del universo apuntan a una inteligencia superior que lo formó.",
+                            details: `
+                                <h4 class="font-bold text-lg mb-2">Lógica del Argumento</h4>
+                                <ul class="list-disc pl-5 space-y-1 text-gray-600">
+                                    <li>El universo observable muestra orden, armonía y propósito.</li>
+                                    <li>Este orden no puede ser producto del azar.</li>
+                                    <li>Debe ser la obra de un "Demiurgo" o artesano divino, una inteligencia buena que modeló el cosmos basándose en las Formas perfectas.</li>
+                                </ul>
+                                <h4 class="font-bold text-lg mt-4 mb-2">Críticas Principales</h4>
+                                <p class="text-gray-600">Este argumento no prueba un creador de la nada (ex nihilo), sino un ordenador de materia preexistente. La percepción de "diseño" puede ser subjetiva.</p>
+                            `
+                        }
+                    ]
+                },
+                middle_ages: {
+                    name: "Edad Media",
+                    thinkers: [
+                        {
+                            id: "anselm_ontological",
+                            name: "San Anselmo",
+                            argument: "Argumento Ontológico",
+                            type: "Ontológico",
+                            summary: "Dios, definido como el ser más grande que se puede pensar, debe existir necesariamente.",
+                            details: `
+                                <h4 class="font-bold text-lg mb-2">Lógica del Argumento (A Priori)</h4>
+                                <ul class="list-disc pl-5 space-y-1 text-gray-600">
+                                    <li>Dios es "aquello mayor que lo cual nada puede ser pensado".</li>
+                                    <li>Un ser que existe en la realidad es más grande que uno que solo existe en la mente.</li>
+                                    <li>Si Dios solo existiera en la mente, podríamos pensar en un ser mayor (uno que también exista en la realidad).</li>
+                                    <li>Esto contradice la definición. Por lo tanto, Dios debe existir en la realidad.</li>
+                                </ul>
+                                <h4 class="font-bold text-lg mt-4 mb-2">Críticas Principales</h4>
+                                <p class="text-gray-600">La crítica principal (de Gaunilo y más tarde Kant) es que la existencia no es un predicado o una propiedad que se pueda añadir a un concepto. No se puede definir algo para que exista.</p>
+                            `
+                        },
+                        {
+                            id: "aquinas_five_ways",
+                            name: "Santo Tomás de Aquino",
+                            argument: "Las Cinco Vías",
+                            type: "Cosmológico/Teleológico",
+                            summary: "Cinco argumentos basados en la observación del mundo para probar la existencia de Dios.",
+                            details: `
+                                <h4 class="font-bold text-lg mb-2">Resumen de las Cinco Vías (A Posteriori)</h4>
+                                <ol class="list-decimal pl-5 space-y-1 text-gray-600">
+                                    <li><strong>Movimiento:</strong> Conduce a un Primer Motor Inmóvil.</li>
+                                    <li><strong>Causa Eficiente:</strong> Conduce a una Primera Causa Incausada.</li>
+                                    <li><strong>Contingencia:</strong> Conduce a un Ser Necesario.</li>
+                                    <li><strong>Grados de Perfección:</strong> Conduce a un Ser Máximamente Perfecto.</li>
+                                    <li><strong>Finalidad:</strong> Conduce a una Inteligencia Suprema que dirige todo.</li>
+                                </ol>
+                                <h4 class="font-bold text-lg mt-4 mb-2">Críticas Principales</h4>
+                                <p class="text-gray-600">Asumen que una regresión infinita es imposible. Aun si prueban una "primera causa", no demuestran que sea el Dios personal y benevolente de la teología cristiana. Pueden caer en la falacia del "dios de las lagunas".</p>
+                            `
+                        }
+                    ]
+                },
+                enlightenment: {
+                    name: "Ilustración",
+                    thinkers: [
+                        {
+                            id: "descartes_leibniz_ontological",
+                            name: "Descartes y Leibniz",
+                            argument: "Reformulación Racionalista",
+                            type: "Ontológico",
+                            summary: "La existencia es una perfección inherente a la idea de un ser supremamente perfecto.",
+                            details: `
+                                <h4 class="font-bold text-lg mb-2">Lógica del Argumento</h4>
+                                <p class="text-gray-600 mb-2"><strong>Descartes:</strong> La idea de un ser supremamente perfecto debe incluir la existencia, así como la idea de un triángulo debe incluir tener tres ángulos. La no existencia sería una imperfección.</p>
+                                <p class="text-gray-600"><strong>Leibniz:</strong> Añadió que primero se debe demostrar que el concepto de un ser con todas las perfecciones es lógicamente posible y no contradictorio.</p>
+                                <h4 class="font-bold text-lg mt-4 mb-2">Críticas Principales</h4>
+                                <p class="text-gray-600">Sufre de la misma objeción de Kant: la existencia no es una propiedad que pueda ser parte de una definición.</p>
+                            `
+                        },
+                        {
+                            id: "kant_moral",
+                            name: "Immanuel Kant",
+                            argument: "Argumento Moral",
+                            type: "Moral",
+                            summary: "La existencia de Dios es un postulado necesario de la razón práctica para que la moralidad tenga sentido.",
+                            details: `
+                                <h4 class="font-bold text-lg mb-2">Lógica del Argumento</h4>
+                                <p class="text-gray-600 mb-2">Kant primero criticó los argumentos tradicionales, afirmando que la razón teórica no puede probar la existencia de Dios.</p>
+                                <ul class="list-disc pl-5 space-y-1 text-gray-600">
+                                    <li>La razón práctica nos exige buscar la virtud.</li>
+                                    <li>El "Sumo Bien" es el estado donde la virtud y la felicidad coinciden.</li>
+                                    <li>En este mundo, la virtud no siempre conduce a la felicidad.</li>
+                                    <li>Por lo tanto, debemos postular la existencia de Dios y una vida futura para garantizar que la justicia prevalezca y el Sumo Bien sea posible.</li>
+                                </ul>
+                                <h4 class="font-bold text-lg mt-4 mb-2">Críticas Principales</h4>
+                                <p class="text-gray-600">La moralidad puede explicarse a través de la evolución social y la empatía, sin necesidad de una base divina. No prueba la existencia de Dios, solo la postula como necesaria para un sistema moral específico.</p>
+                            `
+                        }
+                    ]
+                },
+                modern: {
+                    name: "Era Contemporánea",
+                    thinkers: [
+                        {
+                            id: "kalam_cosmological",
+                            name: "W. L. Craig (Kalām)",
+                            argument: "Argumento Cosmológico Kalām",
+                            type: "Cosmológico",
+                            summary: "El comienzo del universo (sugerido por el Big Bang) implica la existencia de una causa.",
+                            details: `
+                                <h4 class="font-bold text-lg mb-2">Lógica del Argumento</h4>
+                                <ol class="list-decimal pl-5 space-y-1 text-gray-600">
+                                    <li>Todo lo que comienza a existir tiene una causa.</li>
+                                    <li>El universo comenzó a existir.</li>
+                                    <li>Por lo tanto, el universo tiene una causa.</li>
+                                </ol>
+                                <p class="text-gray-600 mt-2">La segunda premisa se apoya en la evidencia científica del Big Bang.</p>
+                                <h4 class="font-bold text-lg mt-4 mb-2">Críticas Principales</h4>
+                                <p class="text-gray-600">El concepto de causalidad puede no aplicarse "antes" del tiempo y el espacio. La física cuántica propone modelos donde el universo podría surgir de fluctuaciones del vacío sin una causa tradicional.</p>
+                            `
+                        },
+                        {
+                            id: "fine_tuning_teleological",
+                            name: "Ajuste Fino",
+                            argument: "Argumento del Ajuste Fino",
+                            type: "Teleológico",
+                            summary: "Las constantes físicas del universo están ajustadas con una precisión improbable para permitir la vida, sugiriendo un diseñador.",
+                            details: `
+                                <h4 class="font-bold text-lg mb-2">Lógica del Argumento</h4>
+                                <ul class="list-disc pl-5 space-y-1 text-gray-600">
+                                    <li>Las constantes físicas fundamentales (gravedad, fuerza nuclear fuerte, etc.) tienen valores que caen en un rango extremadamente estrecho que permite la vida.</li>
+                                    <li>La probabilidad de que esto ocurra por azar es infinitesimal.</li>
+                                    <li>Por lo tanto, es más probable que un "Afinador Fino" o Diseñador estableciera estas constantes.</li>
+                                </ul>
+                                <h4 class="font-bold text-lg mt-4 mb-2">Críticas Principales</h4>
+                                <p class="text-gray-600">La hipótesis del multiverso sugiere que existen innumerables universos con diferentes constantes; es inevitable que al menos uno permita la vida. Es un argumento del "dios de las lagunas" y no podemos calcular la probabilidad real de que las constantes sean diferentes.</p>
+                            `
+                        }
+                    ]
+                }
+            };
+
+            const timelineContainer = document.getElementById('timeline');
+            const cardsContainer = document.getElementById('argument-cards-container');
+            const detailView = document.getElementById('argument-detail-view');
+            const arg1Select = document.getElementById('arg1-select');
+            const arg2Select = document.getElementById('arg2-select');
+            const comparisonCol1 = document.getElementById('comparison-col-1');
+            const comparisonCol2 = document.getElementById('comparison-col-2');
+
+            let activeEra = 'antiquity';
+            let activeArgument = null;
+
+            function init() {
+                renderTimeline();
+                populateComparisonSelects();
+                updateExplorer();
+                initChart();
+                setupNavScroll();
+
+                arg1Select.addEventListener('change', updateComparison);
+                arg2Select.addEventListener('change', updateComparison);
+            }
+
+            function renderTimeline() {
+                timelineContainer.innerHTML = '';
+                for (const eraKey in argumentsData) {
+                    const era = argumentsData[eraKey];
+                    const button = document.createElement('button');
+                    button.className = `timeline-item px-4 py-2 rounded-full font-semibold text-sm sm:text-base shadow-sm ${eraKey === activeEra ? 'active' : 'bg-white text-gray-700 hover:bg-gray-100'}`;
+                    button.textContent = era.name;
+                    button.dataset.era = eraKey;
+                    button.addEventListener('click', () => {
+                        activeEra = eraKey;
+                        activeArgument = null;
+                        renderTimeline();
+                        updateExplorer();
+                    });
+                    timelineContainer.appendChild(button);
+                }
+            }
+            
+            function updateExplorer() {
+                cardsContainer.innerHTML = '';
+                const eraData = argumentsData[activeEra];
+                eraData.thinkers.forEach(thinker => {
+                    const card = document.createElement('div');
+                    card.className = `argument-card bg-white p-4 rounded-lg shadow-md cursor-pointer border-2 ${thinker.id === activeArgument ? 'border-blue-500' : 'border-transparent'}`;
+                    card.innerHTML = `
+                        <h4 class="font-bold text-gray-800">${thinker.name}</h4>
+                        <p class="text-sm text-blue-600 font-semibold">${thinker.argument}</p>
+                        <p class="text-xs text-gray-500 mt-2">${thinker.summary}</p>
+                    `;
+                    card.addEventListener('click', () => {
+                        activeArgument = thinker.id;
+                        updateExplorer();
+                    });
+                    cardsContainer.appendChild(card);
+                });
+
+                if (activeArgument) {
+                    const thinker = eraData.thinkers.find(t => t.id === activeArgument);
+                    renderDetailView(thinker);
+                } else {
+                    detailView.innerHTML = `
+                        <div class="flex flex-col items-center justify-center h-full text-center">
+                            <span class="text-6xl mb-4">📜</span>
+                            <h3 class="text-xl font-semibold text-gray-700">Seleccione un argumento</h3>
+                            <p class="text-gray-500">Haga clic en una tarjeta a la izquierda para ver los detalles del argumento, su lógica y sus críticas.</p>
+                        </div>
+                    `;
+                }
+            }
+
+            function renderDetailView(thinker) {
+                detailView.innerHTML = `
+                    <h3 class="text-2xl font-bold text-gray-800 mb-1">${thinker.name}</h3>
+                    <p class="text-lg text-blue-600 font-semibold mb-4">${thinker.argument}</p>
+                    <span class="inline-block bg-gray-200 text-gray-800 text-xs font-semibold mr-2 px-2.5 py-0.5 rounded-full mb-4">${thinker.type}</span>
+                    <div class="prose max-w-none text-left">${thinker.details}</div>
+                `;
+            }
+
+            function populateComparisonSelects() {
+                const allArguments = [];
+                for (const eraKey in argumentsData) {
+                    argumentsData[eraKey].thinkers.forEach(thinker => {
+                        allArguments.push({
+                            id: thinker.id,
+                            era: eraKey,
+                            text: `${thinker.name} - ${thinker.argument}`
+                        });
+                    });
+                }
+
+                allArguments.forEach(arg => {
+                    const option1 = document.createElement('option');
+                    option1.value = `${arg.era}|${arg.id}`;
+                    option1.textContent = arg.text;
+                    arg1Select.appendChild(option1);
+
+                    const option2 = document.createElement('option');
+                    option2.value = `${arg.era}|${arg.id}`;
+                    option2.textContent = arg.text;
+                    arg2Select.appendChild(option2);
+                });
+                
+                arg1Select.value = "middle_ages|anselm_ontological";
+                arg2Select.value = "enlightenment|kant_moral";
+                updateComparison();
+            }
+
+            function updateComparison() {
+                const val1 = arg1Select.value.split('|');
+                const val2 = arg2Select.value.split('|');
+
+                const thinker1 = argumentsData[val1[0]].thinkers.find(t => t.id === val1[1]);
+                const thinker2 = argumentsData[val2[0]].thinkers.find(t => t.id === val2[1]);
+
+                renderComparisonColumn(comparisonCol1, thinker1);
+                renderComparisonColumn(comparisonCol2, thinker2);
+            }
+
+            function renderComparisonColumn(column, thinker) {
+                if (!thinker) return;
+                column.innerHTML = `
+                    <h3 class="text-lg font-bold text-gray-800">${thinker.name}</h3>
+                    <p class="text-md text-blue-600 font-semibold mb-3">${thinker.argument}</p>
+                    <span class="inline-block bg-gray-200 text-gray-800 text-xs font-semibold mr-2 px-2.5 py-0.5 rounded-full mb-3">${thinker.type}</span>
+                    <div class="prose prose-sm max-w-none">${thinker.details}</div>
+                `;
+            }
+
+            function initChart() {
+                const ctx = document.getElementById('trendsChart').getContext('2d');
+                const chartData = {
+                    labels: ['Antigüedad', 'Edad Media', 'Ilustración', 'Contemporáneo'],
+                    datasets: [
+                        {
+                            label: 'Cosmológico',
+                            data: [1, 1, 0.5, 1],
+                            backgroundColor: 'rgba(59, 130, 246, 0.7)',
+                        },
+                        {
+                            label: 'Teleológico',
+                            data: [1, 1, 0.5, 1],
+                            backgroundColor: 'rgba(16, 185, 129, 0.7)',
+                        },
+                        {
+                            label: 'Ontológico',
+                            data: [0, 1, 1, 0],
+                            backgroundColor: 'rgba(239, 68, 68, 0.7)',
+                        },
+                        {
+                            label: 'Moral',
+                            data: [0, 0, 1, 0.5],
+                            backgroundColor: 'rgba(249, 115, 22, 0.7)',
+                        }
+                    ]
+                };
+                new Chart(ctx, {
+                    type: 'bar',
+                    data: chartData,
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            x: {
+                                stacked: true,
+                            },
+                            y: {
+                                stacked: true,
+                                title: {
+                                    display: true,
+                                    text: 'Prominencia Relativa'
+                                }
+                            }
+                        },
+                        plugins: {
+                            tooltip: {
+                                callbacks: {
+                                    title: function(context) {
+                                        return context[0].dataset.label;
+                                    },
+                                    label: function(context) {
+                                        return `${context.chart.data.labels[context.dataIndex]}`;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            function setupNavScroll() {
+                const navLinks = document.querySelectorAll('.nav-link');
+                const sections = document.querySelectorAll('section[id]');
+
+                const observer = new IntersectionObserver((entries) => {
+                    entries.forEach(entry => {
+                        if (entry.isIntersecting) {
+                            navLinks.forEach(link => {
+                                link.classList.toggle('active', link.getAttribute('href').substring(1) === entry.target.id);
+                            });
+                        }
+                    });
+                }, { rootMargin: "-50% 0px -50% 0px" });
+
+                sections.forEach(section => observer.observe(section));
+            }
+
+            init();
+        });
+    </script>
+</body>
+</html>
